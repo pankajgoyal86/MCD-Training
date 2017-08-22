@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <spring:beans>
+        <spring:bean id="DerbyDB" name="DerbyDB" class="org.enhydra.jdbc.standard.StandardDataSource">
+            <spring:property name="driverName" value="${db.driverName}"/>
+            <spring:property name="url" value="${db.url}"/>
+        </spring:bean>
+    </spring:beans>
+    <db:derby-config name="Derby_Configuration" dataSource-ref="DerbyDB" doc:name="Derby Configuration"/>
+    <flow name="getFlightsFlow">
+        <db:select config-ref="Derby_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[select * from american]]></db:parameterized-query>
+        </db:select>
+        <dw:transform-message doc:name="Transform Message" metadata:id="58351226-c724-4767-bef1-9de03bd13e88">
+            <dw:input-payload doc:sample="sample_data\list_map.dwl"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload map ((payload01 , indexOfPayload01) -> {
+	ID: payload01.ID,
+	code: payload01.CODE1 ++ payload01.CODE2,
+	price: payload01.PRICE as :number,
+	departureDate: payload01.TAKEOFFDATE as :string,
+	origin: payload01.FROMAIRPORT,
+	destination: payload01.TOAIRPORT,
+	emptySeats: payload01.SEATSAVAILABLE as :number,
+	plane: {
+		type: payload01.PLANETYPE,
+		totalSeats: payload01.TOTALSEATS as :number
+	}
+})]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="getFlightsByIDFlow">
+        <db:select config-ref="Derby_Configuration" doc:name="Copy_of_Database">
+            <db:parameterized-query><![CDATA[select * from american where ID = #[message.inboundProperties.'http.uri.params'.ID]]]></db:parameterized-query>
+        </db:select>
+        <dw:transform-message doc:name="Copy_of_Transform Message" metadata:id="58351226-c724-4767-bef1-9de03bd13e88">
+            <dw:input-payload doc:sample="sample_data\list_map.dwl"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload map ((payload01 , indexOfPayload01) -> {
+	ID: payload01.ID,
+	code: payload01.CODE1 ++ payload01.CODE2,
+	price: payload01.PRICE as :number,
+	departureDate: payload01.TAKEOFFDATE as :string,
+	origin: payload01.FROMAIRPORT,
+	destination: payload01.TOAIRPORT,
+	emptySeats: payload01.SEATSAVAILABLE as :number,
+	plane: {
+		type: payload01.PLANETYPE,
+		totalSeats: payload01.TOTALSEATS as :number
+	}
+})]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="postFlightFlow">
+        <set-payload value="{&quot;message&quot;: &quot;Flight added (but not really)&quot;}" doc:name="Set Payload"/>
+    </flow>
+</mule>
